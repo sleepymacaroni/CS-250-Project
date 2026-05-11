@@ -8,7 +8,7 @@ SECRET_KEY = "FarmSync"
 ALGORITHM = "HS256"
 
 pwd_Context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUr1="login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
 def hash_password(password: str):
     return pwd_Context.hash(password)
