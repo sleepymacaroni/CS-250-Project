@@ -32,7 +32,7 @@ def create_crop(
         status="FUTURE"
     )
     db.add(new_crop)
-    db.commit
+    db.commit()
     db.refresh(new_crop)
     return {
         "id": new_crop.id,
@@ -46,12 +46,12 @@ def create_crop(
     }
 
 @router.get("/", response_model=list[schemas.CropResponse])
-def get_crops(db: Session = Depends(get_db), current_user: dict = Depends(get_current_user())):
+def get_crops(db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
     crops = db.query(models.Crop).all()
     return [
         {
             "id": c.id, "name": c.name, "plantingDate": c.planting_date,
             "predictedHarvestDate": c.predicted_harvest_date, "confidenceScore": c.confidence_score,
-            "price": c.price, "quatity": c.quantity, "status": c.status, "description": c.description
+            "price": c.price, "quantity": c.quantity, "status": c.status, "description": c.description
         } for c in crops
     ]
