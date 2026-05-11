@@ -20,6 +20,12 @@ CROP_CONFIG = {
     "table_grapes": {
         "base_temp_c": 10.0,
     },
+    "corn": {
+        "base_temp_c": 10.0,
+    },
+    "wine_grapes": {
+        "base_temp_c": 10.0,
+    },
 }
 
 def add_gdd_columns(df: pd.DataFrame, base_temp_c: float = 10.0) -> pd.DataFrame:
@@ -83,9 +89,11 @@ def build_prediction_row(df: pd.DataFrame) -> pd.DataFrame:
 def load_model_for_crop(crop_type: str):
     #choose the crop model based on inputted crop type
     project_root = Path(__file__).resolve().parents[2]
-    model_map ={
-        "almonds": project_root / "models" / "almond_rf.joblib",
+    model_map = {
+        "almonds":      project_root / "models" / "almond_rf.joblib",
         "table_grapes": project_root / "models" / "table_grape_rf.joblib",
+        "corn":         project_root / "models" / "corn_rf.joblib",
+        "wine_grapes":  project_root / "models" / "wine_grape_rf.joblib",
     }
     if crop_type not in model_map:
         raise ValueError(f"Unsupported crop type: {crop_type}")
