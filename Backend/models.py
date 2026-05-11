@@ -27,5 +27,5 @@ class Crop(Base):
     quantity = Column(Integer, nullable=False)
     description = Column(String, nullable=True)
     status = Column(String, default="Future")
-    created_at = Column(DateTime(timezone=True), server_default=func.now)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
