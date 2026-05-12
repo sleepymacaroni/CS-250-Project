@@ -101,7 +101,7 @@ def load_model_for_crop(crop_type: str):
     model_path = model_map[crop_type]
     if not model_path.exists():
         raise FileNotFoundError(f"Model file not found for crop type '{crop_type}':{model_path}")
-    saved = joblib. load(model_path)
+    saved = joblib.load(model_path)
     return saved["model"]
 
 def predict_with_confidence(model, X_pred: pd.DataFrame):

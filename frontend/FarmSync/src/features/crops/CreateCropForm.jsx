@@ -51,8 +51,10 @@ function CreateCropForm({cropToEdit = {}, onCloseModal}) {
           {...register("name")}
           className="border text-xs border-border p-2 cursor-pointer"
         >
-          <option>Almonds</option>
-          <option>Table grapes</option>
+        <option value="Almonds">Almonds</option>
+        <option value="Table grapes">Table grapes</option>
+        <option value="Corn">Corn</option>
+        <option value="Wine grapes">Wine grapes</option>
         </select>
       </FormRow>
 

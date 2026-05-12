@@ -15,8 +15,16 @@ router = APIRouter(prefix="/crops", tags=["Crops"])
  
 # Maps (crop name, location) → (crop_type for AI model, season_start)
 CROP_CONFIG = {
-    ("Almonds", "Fresno, CA"):           ("almonds",      "2025-02-01"),
+    ("Almonds", "Fresno, CA"): ("almonds", "2025-02-01"),
     ("Table grapes", "Bakersfield, CA"): ("table_grapes", "2025-04-01"),
+
+    ("Corn", "Fresno, CA"): ("corn", "2025-03-15"),
+    ("Corn", "Bakersfield, CA"): ("corn", "2025-03-15"),
+    ("Corn", "Modesto, CA"): ("corn", "2025-03-15"),
+
+    ("Wine grapes", "Fresno, CA"): ("wine_grapes", "2025-04-01"),
+    ("Wine grapes", "Bakersfield, CA"): ("wine_grapes", "2025-04-01"),
+    ("Wine grapes", "Modesto, CA"): ("wine_grapes", "2025-04-01"),
 }
  
  
