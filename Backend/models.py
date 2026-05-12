@@ -2,6 +2,7 @@ from sqlalchemy import Column, Integer, String, Boolean, DateTime, Float, Foreig
 from sqlalchemy.sql import func
 from database import Base
 
+
 class User(Base):
     __tablename__ = "users"
 
@@ -26,6 +27,6 @@ class Crop(Base):
     price = Column(Float, nullable=False)
     quantity = Column(Integer, nullable=False)
     description = Column(String, nullable=True)
-    status = Column(String, default="Future")
-    created_at = Column(DateTime(timezone=True), server_default=func.now)
-
+    location = Column(String, nullable=True)        # added
+    status = Column(String, default="FUTURE")       # fixed: was "Future", should match FUTURE/HARVEST_SOON/AVAILABLE
+    created_at = Column(DateTime(timezone=True), server_default=func.now())  # fixed: was missing ()
