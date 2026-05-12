@@ -1,5 +1,4 @@
-import {HiOutlineHome, HiOutlineShoppingBag} from "react-icons/hi";
-import {NavLink} from "react-router-dom";
+import {HiOutlineHome, HiOutlineShoppingBag, HiOutlineClipboardDocumentList} from "react-icons/hi2";
 import NavItem from "./NavItem";
 import {RiLeafLine} from "react-icons/ri";
 
@@ -15,6 +14,9 @@ function MainNav() {
         </NavItem>
         <NavItem to="/crops" icon={<RiLeafLine />}>
           Crops
+        </NavItem>
+        <NavItem to="/orders" icon={<HiOutlineClipboardDocumentList />}>
+          My Orders
         </NavItem>
       </ul>
     </nav>

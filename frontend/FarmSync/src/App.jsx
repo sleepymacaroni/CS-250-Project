@@ -3,6 +3,7 @@ import {BrowserRouter, Navigate, Route, Routes} from "react-router-dom";
 import Dashboard from "./pages/Dashboard";
 import Crops from "./pages/Crops";
 import Marketplace from "./pages/Marketplace";
+import Orders from "./pages/Orders";
 import PageNotFound from "./pages/PageNotFound";
 import AppLayout from "./ui/AppLayout";
 import {QueryClient, QueryClientProvider} from "@tanstack/react-query";
@@ -29,6 +30,7 @@ function App() {
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="crops" element={<Crops />} />
             <Route path="marketplace" element={<Marketplace />} />
+            <Route path="orders" element={<Orders />} />
           </Route>
 
           {/* FUTURE LOGIN ROUTE WITH PAGENOTFOUND */}
