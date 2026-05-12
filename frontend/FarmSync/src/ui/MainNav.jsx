@@ -1,6 +1,7 @@
 import {HiOutlineHome, HiOutlineShoppingBag, HiOutlineClipboardDocumentList} from "react-icons/hi2";
 import NavItem from "./NavItem";
 import {RiLeafLine} from "react-icons/ri";
+import {isBuyer, isSeller} from "../services/authApi";
 
 function MainNav() {
   return (
@@ -12,12 +13,16 @@ function MainNav() {
         <NavItem to="/marketplace" icon={<HiOutlineShoppingBag />}>
           Marketplace
         </NavItem>
-        <NavItem to="/crops" icon={<RiLeafLine />}>
-          Crops
-        </NavItem>
-        <NavItem to="/orders" icon={<HiOutlineClipboardDocumentList />}>
-          My Orders
-        </NavItem>
+        {isSeller() && (
+          <NavItem to="/crops" icon={<RiLeafLine />}>
+            Crops
+          </NavItem>
+        )}
+        {isBuyer() && (
+          <NavItem to="/orders" icon={<HiOutlineClipboardDocumentList />}>
+            My Orders
+          </NavItem>
+        )}
       </ul>
     </nav>
   );

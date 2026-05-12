@@ -109,6 +109,17 @@ def get_crops(
  
  
 # ── POST /crops/ ─────────────────────────────────────────────────────────────
+
+
+# GET /crops/marketplace
+@router.get("/marketplace", response_model=list[schemas.CropResponse])
+def get_marketplace_crops(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    crops = db.query(models.Crop).all()
+    return [crop_to_response(c) for c in crops]
+
 @router.post("/", response_model=schemas.CropResponse)
 def create_crop(
     crop: schemas.CropCreate,

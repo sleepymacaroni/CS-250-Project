@@ -26,12 +26,14 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
     existing = db.query(models.User).filter(models.User.email == user.email).first()
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
+
+    role = auth.normalize_role(user.role)
  
     new_user = models.User(
         full_name=user.full_name,
         email=user.email,
         hashed_password=auth.hash_password(user.password),
-        role=user.role,
+        role=role,
     )
     db.add(new_user)
     db.commit()
@@ -43,6 +45,13 @@ def login(user: schemas.LoginRequest, db: Session = Depends(get_db)):
     db_user = db.query(models.User).filter(models.User.email == user.email).first()
     if not db_user or not auth.verify_password(user.password, db_user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
- 
-    token = auth.create_access_token({"sub": db_user.email, "role": db_user.role})
-    return {"access_token": token, "token_type": "bearer", "role": db_user.role}
+    role = auth.normalize_role(db_user.role)
+    token = auth.create_access_token({"sub": db_user.email, "role": role})
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "role": role,
+        "id": db_user.id,
+        "full_name": db_user.full_name,
+        "email": db_user.email,
+    }

@@ -28,6 +28,9 @@ class Token(BaseModel):
     access_token: str
     token_type: str
     role: str
+    id: int
+    full_name: str
+    email: str
 
 
 class CropCreate(BaseModel):

@@ -1,10 +1,14 @@
 import {useSearchParams} from "react-router-dom";
-import {useCrops} from "../crops/useCrops";
+import {useQuery} from "@tanstack/react-query";
+import {getMarketplaceCrops} from "../../services/cropsApi";
 import MarketplaceGrid from "./MarketplaceGrid";
 import Pagination, {PAGE_SIZE} from "../../ui/Pagination";
 
 function MarketplaceLayout() {
-  const {isLoading, crops = [], error, isError} = useCrops();
+  const {data: crops = [], isLoading, error, isError} = useQuery({
+    queryKey: ["marketplaceCrops"],
+    queryFn: getMarketplaceCrops,
+  });
   const [searchParams] = useSearchParams();
 
   if (isLoading)

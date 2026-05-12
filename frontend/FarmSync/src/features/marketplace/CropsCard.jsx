@@ -32,12 +32,38 @@
 * and user roles are introduced.
 */
 
+import {useMutation, useQueryClient} from "@tanstack/react-query";
+import toast from "react-hot-toast";
+
 import Button from "../../ui/Button";
 import Modal from "../../ui/Modal";
 import {formatStatus} from "../../utils/formatStatus";
+import {isBuyer} from "../../services/authApi";
+import {placeOrder} from "../../services/ordersApi";
 import ListingDetails from "./ListingDetails";
 
 function CropsCard({crop}) {
+  const queryClient = useQueryClient();
+  const {mutate: buyCrop, isPending: isBuying} = useMutation({
+    mutationFn: placeOrder,
+    onSuccess: () => {
+      toast.success("Order placed");
+      queryClient.invalidateQueries({queryKey: ["orders"]});
+    },
+    onError: (error) => toast.error(error.message),
+  });
+
+  function handleBuy() {
+    buyCrop({
+      cropName: crop.name,
+      quantity: 1,
+      unitPrice: crop.price,
+      location: crop.location,
+      farmerName: crop.farmerName,
+      estimatedDelivery: crop.predictedHarvestDate,
+    });
+  }
+
   const {
     name: cropType,
     status,
@@ -91,14 +117,27 @@ function CropsCard({crop}) {
         </p>
         <p className="text-2xl font-bold text-action-primary">${price}</p>
       </div>
-      <Modal>
-        <Modal.Open opens="listing-details">
-          <Button className="w-full">View Listing</Button>
-        </Modal.Open>
-        <Modal.Window name="listing-details">
-          <ListingDetails crop={crop} />
-        </Modal.Window>
-      </Modal>
+      <div className="grid gap-3">
+        <Modal>
+          <Modal.Open opens="listing-details">
+            <Button className="w-full" variation={isBuyer() ? "secondary" : "primary"}>
+              View Listing
+            </Button>
+          </Modal.Open>
+          <Modal.Window name="listing-details">
+            <ListingDetails crop={crop} />
+          </Modal.Window>
+        </Modal>
+        {isBuyer() && (
+          <Button
+            className="w-full"
+            onClick={handleBuy}
+            disabled={isBuying || status !== "AVAILABLE"}
+          >
+            {status === "AVAILABLE" ? "Buy 1 unit" : "Not available yet"}
+          </Button>
+        )}
+      </div>
     </article>
   );
 }

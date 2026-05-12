@@ -21,20 +21,26 @@ def create_access_token(data: dict):
     to_encode = data.copy()
     to_encode["exp"] = datetime.utcnow() + timedelta(hours=24)
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+def normalize_role(role: str | None) -> str:
+    role = (role or "buyer").strip().lower()
+    if role in {"farmer", "seller"}:
+        return "seller"
+    return "buyer"
  
 def get_current_user(token: str = Depends(oauth2_scheme)):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        return {"email": payload.get("sub"), "role": payload.get("role")}
+        return {"email": payload.get("sub"), "role": normalize_role(payload.get("role"))}
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid Token")
  
 def require_farmer(current_user: dict = Depends(get_current_user)):
-    if current_user["role"] != "Farmer":
-        raise HTTPException(status_code=403, detail="Farmers Only")
+    if normalize_role(current_user["role"]) != "seller":
+        raise HTTPException(status_code=403, detail="Sellers Only")
     return current_user
  
 def require_buyer(current_user: dict = Depends(get_current_user)):
-    if current_user["role"] != "Buyer":
+    if normalize_role(current_user["role"]) != "buyer":
         raise HTTPException(status_code=403, detail="Buyers Only")
     return current_user
