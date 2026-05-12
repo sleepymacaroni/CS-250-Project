@@ -2,7 +2,7 @@ const BASE_URL = "http://localhost:8000";
 
 const DEMO_USER = {
   full_name: "Demo Farmer",
-  email: "demo@farmsync.test",
+  email: "demo@farmsync.com",
   password: "password123",
   role: "Farmer",
 };
