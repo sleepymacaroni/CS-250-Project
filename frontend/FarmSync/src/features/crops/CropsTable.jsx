@@ -4,7 +4,7 @@ import CropsRow from "./CropsRow";
 import Pagination, {PAGE_SIZE} from "../../ui/Pagination";
 
 function CropsTable() {
-  const {isLoading, crops} = useCrops();
+  const {isLoading, crops = [], error, isError} = useCrops();
   const [searchParams] = useSearchParams();
 
   if (isLoading)
@@ -14,11 +14,16 @@ function CropsTable() {
       </div>
     );
 
+  if (isError)
+    return (
+      <div className="rounded-lg border border-error/30 bg-error/10 p-6 text-error">
+        Could not load crops: {error.message}
+      </div>
+    );
+
   // 1) FILTER
   const filterValue = searchParams.get("status") || "all";
-  let filteredCrops;
-
-  if (filterValue === "all") filteredCrops = crops;
+  let filteredCrops = crops;
   if (filterValue === "harvest-soon")
     filteredCrops = crops.filter((crop) => crop.status === "HARVEST_SOON");
   if (filterValue === "future")
@@ -39,7 +44,7 @@ function CropsTable() {
       );
     }
 
-    return (a[field] - b[field]) * modifier;
+    return ((Number(a[field]) || 0) - (Number(b[field]) || 0)) * modifier;
   });
   // 3) PAGINATION
   const page = !searchParams.get("page") ? 1 : Number(searchParams.get("page"));

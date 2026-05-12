@@ -18,7 +18,7 @@ import {
  * Returns ready-to-use data for UI components.
  */
 export function useDashboardData() {
-  const {crops, isLoading} = useCrops();
+  const {crops = [], isLoading, error, isError} = useCrops();
 
   const stats = getDashboardStats(crops);
   const timelineData = getHarvestTimelineData(crops);
@@ -27,6 +27,8 @@ export function useDashboardData() {
 
   return {
     isLoading,
+    error,
+    isError,
     upcomingCrops,
     stats,
     timelineData,

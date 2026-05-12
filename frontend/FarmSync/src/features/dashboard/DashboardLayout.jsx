@@ -5,13 +5,20 @@ import UpcomingHarvests from "./UpcomingHarvests";
 import {useDashboardData} from "./useDashboarData";
 
 function DashboardLayout() {
-  const {isLoading, upcomingCrops, stats, timelineData, statusData} =
+  const {isLoading, error, isError, upcomingCrops, stats, timelineData, statusData} =
     useDashboardData();
 
   if (isLoading)
     return (
       <div className="flex items-center justify-center h-full">
         <span className="loader"></span>
+      </div>
+    );
+
+  if (isError)
+    return (
+      <div className="rounded-lg border border-error/30 bg-error/10 p-6 text-error">
+        Could not load dashboard data: {error.message}
       </div>
     );
 

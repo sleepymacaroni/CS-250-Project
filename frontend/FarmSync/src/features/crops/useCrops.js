@@ -4,12 +4,14 @@ import {getCrops} from "../../services/cropsApi";
 export function useCrops() {
   const {
     isLoading,
-    data: crops,
+    data: crops = [],
     error,
+    isError,
   } = useQuery({
     queryKey: ["crops"],
     queryFn: getCrops,
+    retry: 1,
   });
 
-  return {isLoading, crops, error};
+  return {isLoading, crops, error, isError};
 }

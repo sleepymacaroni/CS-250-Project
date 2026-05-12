@@ -2,14 +2,18 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-DATABASE_URL = "postgresql://Ryan:hello@localhost:5432/FarmSync"
+# SQLite keeps the class/demo version runnable without requiring everyone
+# to create the same local PostgreSQL user/database first.
+DATABASE_URL = "sqlite:///./farmsync.db"
 
-engine = create_engine(DATABASE_URL)
+engine = create_engine(
+    DATABASE_URL, connect_args={"check_same_thread": False}
+)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 def get_db():
-    db =  SessionLocal()
+    db = SessionLocal()
     try:
         yield db
     finally:
