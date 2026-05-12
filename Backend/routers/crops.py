@@ -6,25 +6,24 @@ import models, schemas
 from datetime import datetime
 import sys
 from pathlib import Path
-
-# Import the AI prediction function
-sys.path.append(str(Path(__file__).resolve().parents[1] / "AI"))
+ 
+# Fix: correct path to predict.py (AI/src/model/predict.py)
+sys.path.append(str(Path(__file__).resolve().parents[2] / "AI" / "src" / "model"))
 from predict import predict_harvest
-
+ 
 router = APIRouter(prefix="/crops", tags=["Crops"])
-
-# Maps crop name and location to the crop_type and season_start
-# the AI model expects
+ 
+# Maps (crop name, location) → (crop_type for AI model, season_start)
 CROP_CONFIG = {
-    ("Almonds", "Fresno, CA"):        ("almonds",      "2025-02-01"),
+    ("Almonds", "Fresno, CA"):           ("almonds",      "2025-02-01"),
     ("Table grapes", "Bakersfield, CA"): ("table_grapes", "2025-04-01"),
 }
-
+ 
+ 
 def get_weather_for_location(location: str, planting_date: str) -> list[dict]:
     """
-    Placeholder - replace with a real weather API call.
-    Returns fake weather data so the AI can run until
-    a weather API is wired in.
+    Placeholder — replace with a real weather API call.
+    Returns fake weather data so the AI can run until a weather API is wired in.
     """
     from datetime import date, timedelta
     start = datetime.strptime(planting_date, "%Y-%m-%d").date()
@@ -38,44 +37,78 @@ def get_weather_for_location(location: str, planting_date: str) -> list[dict]:
         }
         for i in range(max(days, 30))
     ]
-
-
+ 
+ 
 def calculate_harvest(name: str, planting_date: str, location: str):
     """
     Calls the AI model to get predicted harvest date and confidence.
-    Falls back to a simple estimate if the crop/location combo
-    is not supported yet.
+    Falls back to a rough estimate if the crop/location combo is not supported.
     """
     key = (name, location)
     if key not in CROP_CONFIG:
-        # Unsupported combo — return a rough estimate and low confidence
         from datetime import date, timedelta
         fallback_date = (
             datetime.strptime(planting_date, "%Y-%m-%d").date()
             + timedelta(days=180)
         )
         return str(fallback_date), 0.50
-
+ 
     crop_type, season_start = CROP_CONFIG[key]
     daily_weather = get_weather_for_location(location, planting_date)
-
     result = predict_harvest(crop_type, daily_weather, season_start)
     return result["predicted_harvest_date"], result["confidence"]
-
-
+ 
+ 
 def compute_status(predicted_harvest_date: str) -> str:
     today = datetime.today().date()
     harvest = datetime.strptime(predicted_harvest_date, "%Y-%m-%d").date()
     days_away = (harvest - today).days
-
+ 
     if days_away <= 14:
         return "AVAILABLE"
     elif days_away <= 60:
         return "HARVEST_SOON"
     else:
         return "FUTURE"
-
-
+ 
+ 
+def crop_to_response(crop: models.Crop) -> dict:
+    """Serialize a Crop ORM object to the camelCase shape the frontend expects."""
+    return {
+        "id": crop.id,
+        "name": crop.name,
+        "plantingDate": crop.planting_date,
+        "predictedHarvestDate": crop.predicted_harvest_date,
+        "confidenceScore": crop.confidence_score,
+        "price": crop.price,
+        "quantity": crop.quantity,
+        "status": crop.status,
+        "location": crop.location,
+        "description": crop.description,
+    }
+ 
+ 
+# ── GET /crops/ ──────────────────────────────────────────────────────────────
+@router.get("/", response_model=list[schemas.CropResponse])
+def get_crops(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    farmer = db.query(models.User).filter(
+        models.User.email == current_user["email"]
+    ).first()
+ 
+    if not farmer:
+        raise HTTPException(status_code=404, detail="User not found")
+ 
+    crops = db.query(models.Crop).filter(
+        models.Crop.farmer_id == farmer.id
+    ).all()
+ 
+    return [crop_to_response(c) for c in crops]
+ 
+ 
+# ── POST /crops/ ─────────────────────────────────────────────────────────────
 @router.post("/", response_model=schemas.CropResponse)
 def create_crop(
     crop: schemas.CropCreate,
@@ -85,15 +118,15 @@ def create_crop(
     farmer = db.query(models.User).filter(
         models.User.email == current_user["email"]
     ).first()
-
+ 
     if not farmer:
         raise HTTPException(status_code=404, detail="Farmer not found")
-
+ 
     harvest_date, confidence = calculate_harvest(
         crop.name, crop.plantingDate, crop.location
     )
     status = compute_status(harvest_date)
-
+ 
     new_crop = models.Crop(
         farmer_id=farmer.id,
         name=crop.name,
@@ -107,12 +140,71 @@ def create_crop(
         status=status,
     )
     db.add(new_crop)
-    db.commit()           # fixed: was missing ()
+    db.commit()
     db.refresh(new_crop)
-
-    return {
-        "id": new_crop.id,
-        "name": new_crop.name,
-        "plantingDate": new_crop.planting_date,
-        "predictedHarvestDate": new_crop.predicted_harvest_date,
-        "confid
+ 
+    return crop_to_response(new_crop)
+ 
+ 
+# ── PUT /crops/{id} ──────────────────────────────────────────────────────────
+@router.put("/{crop_id}", response_model=schemas.CropResponse)
+def update_crop(
+    crop_id: int,
+    crop: schemas.CropCreate,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_farmer),
+):
+    farmer = db.query(models.User).filter(
+        models.User.email == current_user["email"]
+    ).first()
+ 
+    existing = db.query(models.Crop).filter(
+        models.Crop.id == crop_id,
+        models.Crop.farmer_id == farmer.id,
+    ).first()
+ 
+    if not existing:
+        raise HTTPException(status_code=404, detail="Crop not found")
+ 
+    harvest_date, confidence = calculate_harvest(
+        crop.name, crop.plantingDate, crop.location
+    )
+    status = compute_status(harvest_date)
+ 
+    existing.name = crop.name
+    existing.planting_date = crop.plantingDate
+    existing.predicted_harvest_date = harvest_date
+    existing.confidence_score = confidence
+    existing.price = crop.price
+    existing.quantity = crop.quantity
+    existing.description = crop.description
+    existing.location = crop.location
+    existing.status = status
+ 
+    db.commit()
+    db.refresh(existing)
+ 
+    return crop_to_response(existing)
+ 
+ 
+# ── DELETE /crops/{id} ───────────────────────────────────────────────────────
+@router.delete("/{crop_id}", status_code=204)
+def delete_crop(
+    crop_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_farmer),
+):
+    farmer = db.query(models.User).filter(
+        models.User.email == current_user["email"]
+    ).first()
+ 
+    existing = db.query(models.Crop).filter(
+        models.Crop.id == crop_id,
+        models.Crop.farmer_id == farmer.id,
+    ).first()
+ 
+    if not existing:
+        raise HTTPException(status_code=404, detail="Crop not found")
+ 
+    db.delete(existing)
+    db.commit()
