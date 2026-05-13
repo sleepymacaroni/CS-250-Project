@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from database import get_db
-from auth import get_current_user, require_farmer
+from auth import get_current_user, require_farmer, require_buyer
 import models, schemas
 from datetime import datetime
 import sys
@@ -206,6 +206,32 @@ def update_crop(
     return crop_to_response(existing)
  
  
+# ── POST /crops/{id}/purchase ────────────────────────────────────────────────
+@router.post("/{crop_id}/purchase", response_model=schemas.CropResponse)
+def purchase_crop(
+    crop_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_buyer),
+):
+    """
+    Decrements a crop's quantity by 1. Only buyers can call this.
+    Returns 400 if the crop is out of stock.
+    """
+    crop = db.query(models.Crop).filter(models.Crop.id == crop_id).first()
+
+    if not crop:
+        raise HTTPException(status_code=404, detail="Crop not found")
+
+    if crop.quantity < 1:
+        raise HTTPException(status_code=400, detail="Crop is out of stock")
+
+    crop.quantity -= 1
+    db.commit()
+    db.refresh(crop)
+
+    return crop_to_response(crop)
+
+
 # ── DELETE /crops/{id} ───────────────────────────────────────────────────────
 @router.delete("/{crop_id}", status_code=204)
 def delete_crop(

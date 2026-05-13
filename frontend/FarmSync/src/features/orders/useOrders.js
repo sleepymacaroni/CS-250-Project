@@ -1,7 +1,8 @@
 /**
  * useOrders
  * ---------
- * React Query hook that fetches all orders for the current user.
+ * React Query hook that fetches all orders for the current user,
+ * hydrated with live crop data from the backend.
  */
 
 import {useQuery} from "@tanstack/react-query";

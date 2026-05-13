@@ -1,7 +1,7 @@
 /**
  * useCancelOrder
  * --------------
- * React Query mutation that cancels a PENDING order.
+ * React Query mutation that cancels a PENDING order by its orderId.
  */
 
 import {useMutation, useQueryClient} from "@tanstack/react-query";

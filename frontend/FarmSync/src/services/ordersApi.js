@@ -1,152 +1,121 @@
 /**
  * ordersApi.js
  * ------------
- * Mock API for orders — mirrors the pattern used in cropsApi.js.
- * Stores order data in localStorage under the key "farmsync_orders".
+ * Orders are built from real Crop objects returned by the backend
+ * (GET /crops/marketplace → CropResponse shape).
  *
- * Replace with real backend calls once the API is ready.
+ * The crop shape from the backend is:
+ *   { id, name, plantingDate, predictedHarvestDate, confidenceScore,
+ *     price, quantity, status, location, description }
+ *
+ * Since there is no dedicated orders endpoint yet, placed orders are
+ * persisted in localStorage. Each stored order record contains only
+ * fields that come directly from the crop object, plus order-level
+ * metadata (orderId, orderDate, orderStatus).
  */
 
 import {getData, setData} from "./storage";
+import {getMarketplaceCrops, purchaseCrop} from "./cropsApi";
 
 const ORDERS_KEY = "farmsync_orders";
 
-/** Seed orders — pre-populated for the signed-in demo user */
-const seedOrders = [
-  {
-    id: "ORD-001",
-    cropName: "Table grapes",
-    quantity: 40,
-    unitPrice: 5,
-    totalPrice: 200,
-    status: "COMPLETED",
-    orderDate: "2026-03-10",
-    estimatedDelivery: "2026-03-28",
-    location: "Fresno, CA",
-    farmerName: "Green Valley Farm",
-  },
-  {
-    id: "ORD-002",
-    cropName: "Almonds",
-    quantity: 25,
-    unitPrice: 4,
-    totalPrice: 100,
-    status: "IN_TRANSIT",
-    orderDate: "2026-04-22",
-    estimatedDelivery: "2026-06-10",
-    location: "Bakersfield, CA",
-    farmerName: "Sierra Nut Co.",
-  },
-  {
-    id: "ORD-003",
-    cropName: "Table grapes",
-    quantity: 60,
-    unitPrice: 3,
-    totalPrice: 180,
-    status: "PROCESSING",
-    orderDate: "2026-05-01",
-    estimatedDelivery: "2026-05-20",
-    location: "Modesto, CA",
-    farmerName: "Sunburst Growers",
-  },
-  {
-    id: "ORD-004",
-    cropName: "Almonds",
-    quantity: 15,
-    unitPrice: 4,
-    totalPrice: 60,
-    status: "PENDING",
-    orderDate: "2026-05-10",
-    estimatedDelivery: "2026-06-30",
-    location: "Visalia, CA",
-    farmerName: "Oak Ridge Farms",
-  },
-  {
-    id: "ORD-005",
-    cropName: "Table grapes",
-    quantity: 20,
-    unitPrice: 5,
-    totalPrice: 100,
-    status: "CANCELLED",
-    orderDate: "2026-02-14",
-    estimatedDelivery: "2026-03-05",
-    location: "Tulare, CA",
-    farmerName: "Valley Harvest LLC",
-  },
-];
-
-export function initOrders() {
-  try {
-    const data = getData(ORDERS_KEY);
-    if (!data) setData(ORDERS_KEY, seedOrders);
-  } catch (error) {
-    console.error(error);
-    throw new Error("Could not init orders data");
-  }
+function getStoredOrders() {
+  return getData(ORDERS_KEY) || [];
 }
 
-export function getOrders() {
-  initOrders();
-  return new Promise((resolve, reject) => {
-    setTimeout(() => {
-      try {
-        const data = getData(ORDERS_KEY);
-        // Newest first
-        resolve([...data].sort((a, b) => b.orderDate.localeCompare(a.orderDate)));
-      } catch (error) {
-        console.error(error);
-        reject(new Error("Could not fetch orders"));
-      }
-    }, 300);
+function saveStoredOrders(orders) {
+  setData(ORDERS_KEY, orders);
+}
+
+/**
+ * Merges stored order metadata with live crop data from the backend.
+ * quantity is intentionally NOT overwritten — order.quantity is how
+ * many units the buyer purchased (1), not the listing's total stock.
+ */
+async function hydrateOrders(storedOrders) {
+  let liveCrops = [];
+  try {
+    liveCrops = await getMarketplaceCrops();
+  } catch {
+    // If the backend is unreachable, use the snapshot saved at order time.
+  }
+
+  const cropById = Object.fromEntries(liveCrops.map((c) => [c.id, c]));
+
+  return storedOrders.map((order) => {
+    const liveCrop = cropById[order.cropId];
+    return {
+      ...order,
+      name: liveCrop?.name ?? order.name,
+      price: liveCrop?.price ?? order.price,
+      // quantity intentionally kept from order snapshot, not live crop
+      status: liveCrop?.status ?? order.status,
+      location: liveCrop?.location ?? order.location,
+      predictedHarvestDate:
+        liveCrop?.predictedHarvestDate ?? order.predictedHarvestDate,
+      description: liveCrop?.description ?? order.description,
+    };
   });
 }
 
-export function cancelOrder(id) {
+/**
+ * Returns all orders for the current user, hydrated with live crop data.
+ * Sorted newest-first by orderDate.
+ */
+export async function getOrders() {
+  const stored = getStoredOrders();
+  const hydrated = await hydrateOrders(stored);
+  return [...hydrated].sort((a, b) => b.orderDate.localeCompare(a.orderDate));
+}
+
+/**
+ * Places a new order for 1 unit of the given crop, then decrements
+ * the crop's quantity on the backend via PUT /crops/{id}.
+ *
+ * @param {Object} crop  A CropResponse object from getMarketplaceCrops()
+ */
+export async function placeOrder(crop) {
+  // 1. Decrement quantity on the backend via the buyer-accessible endpoint
+  await purchaseCrop(crop.id);
+
+  // 2. Save the order locally — quantity is 1 (units purchased), not crop.quantity
+  const orders = getStoredOrders();
+  const newOrder = {
+    orderId: `ORD-${Date.now()}`,
+    orderDate: new Date().toISOString().split("T")[0],
+    orderStatus: "PENDING",
+    cropId: crop.id,
+    name: crop.name,
+    plantingDate: crop.plantingDate,
+    predictedHarvestDate: crop.predictedHarvestDate,
+    confidenceScore: crop.confidenceScore,
+    price: crop.price,
+    quantity: 1,
+    status: crop.status,
+    location: crop.location,
+    description: crop.description,
+  };
+  saveStoredOrders([newOrder, ...orders]);
+  return newOrder;
+}
+
+/**
+ * Cancels a pending order by its orderId.
+ */
+export function cancelOrder(orderId) {
   return new Promise((resolve, reject) => {
     setTimeout(() => {
       try {
-        const orders = getData(ORDERS_KEY) || [];
+        const orders = getStoredOrders();
         const updated = orders.map((o) =>
-          o.id === id ? {...o, status: "CANCELLED"} : o
+          o.orderId === orderId ? {...o, orderStatus: "CANCELLED"} : o
         );
-        setData(ORDERS_KEY, updated);
+        saveStoredOrders(updated);
         resolve();
       } catch (error) {
         console.error(error);
         reject(new Error("Could not cancel order"));
       }
     }, 300);
-  });
-}
-
-/**
- * Called from CropsCard when a buyer clicks "Add to Cart" / "Place Order".
- * Creates a new PENDING order from a marketplace crop.
- */
-export function placeOrder({cropName, quantity, unitPrice, location, farmerName, estimatedDelivery}) {
-  return new Promise((resolve, reject) => {
-    initOrders();
-    setTimeout(() => {
-      try {
-        const orders = getData(ORDERS_KEY) || [];
-        const newOrder = {
-          id: `ORD-${String(orders.length + 1).padStart(3, "0")}`,
-          cropName,
-          quantity,
-          unitPrice,
-          totalPrice: quantity * unitPrice,
-          status: "PENDING",
-          orderDate: new Date().toISOString().split("T")[0],
-          estimatedDelivery,
-          location,
-          farmerName: farmerName ?? "Unknown Farmer",
-        };
-        setData(ORDERS_KEY, [newOrder, ...orders]);
-        resolve(newOrder);
-      } catch (error) {
-        console.error(error);
-        reject(new Error("Could not place order"));
-      }
-    }, 400);
   });
 }

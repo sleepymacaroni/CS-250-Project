@@ -60,3 +60,7 @@ export async function updateExistingCrop(updatedCrop, id) {
 export async function deleteCrop(id) {
   return request(`/crops/${id}`, {method: "DELETE"});
 }
+
+export async function purchaseCrop(id) {
+  return request(`/crops/${id}/purchase`, {method: "POST"});
+}

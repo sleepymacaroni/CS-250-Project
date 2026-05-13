@@ -3,12 +3,13 @@
  * -----------
  * Displays the signed-in user's order history and purchase request tracking.
  *
- * Features:
- * - Order history list with status badges
- * - Per-order request tracking timeline
- * - Filter by order status
- * - Summary stats (total spent, active orders, completed)
- * - Cancel pending orders
+ * Each order is built from a real CropResponse object. The fields available
+ * are exactly what the backend returns:
+ *   id, name, plantingDate, predictedHarvestDate, confidenceScore,
+ *   price, quantity, status, location, description
+ *
+ * Plus order-level metadata added at placement time:
+ *   orderId, orderDate, orderStatus, cropId
  */
 
 import {useState} from "react";
@@ -18,7 +19,6 @@ import Button from "../ui/Button";
 import {
   HiOutlineClipboardDocumentList,
   HiOutlineCheckCircle,
-  HiOutlineClock,
   HiOutlineXCircle,
   HiOutlineTruck,
   HiOutlineCurrencyDollar,
@@ -30,10 +30,10 @@ import {
 import {useOrders} from "../features/orders/useOrders";
 import {useCancelOrder} from "../features/orders/useCancelOrder";
 
-/* ─────────────── helpers ─────────────── */
+/* ─────────────── status helpers ─────────────── */
 
-function getStatusStyle(status) {
-  switch (status) {
+function getStatusStyle(orderStatus) {
+  switch (orderStatus) {
     case "COMPLETED":
       return "order-badge--completed";
     case "IN_TRANSIT":
@@ -49,7 +49,7 @@ function getStatusStyle(status) {
   }
 }
 
-function getStatusLabel(status) {
+function getStatusLabel(orderStatus) {
   const labels = {
     PENDING: "Pending",
     PROCESSING: "Processing",
@@ -57,14 +57,10 @@ function getStatusLabel(status) {
     COMPLETED: "Completed",
     CANCELLED: "Cancelled",
   };
-  return labels[status] ?? status;
+  return labels[orderStatus] ?? orderStatus;
 }
 
 const TRACKING_STEPS = ["PENDING", "PROCESSING", "IN_TRANSIT", "COMPLETED"];
-
-function getStepIndex(status) {
-  return TRACKING_STEPS.indexOf(status);
-}
 
 /* ─────────────── sub-components ─────────────── */
 
@@ -80,8 +76,8 @@ function StatCard({icon, label, value, accent}) {
   );
 }
 
-function TrackingTimeline({status}) {
-  if (status === "CANCELLED") {
+function TrackingTimeline({orderStatus}) {
+  if (orderStatus === "CANCELLED") {
     return (
       <div className="order-tracking-cancelled">
         <HiOutlineXCircle className="text-error text-lg" />
@@ -92,7 +88,7 @@ function TrackingTimeline({status}) {
     );
   }
 
-  const currentStep = getStepIndex(status);
+  const currentStep = TRACKING_STEPS.indexOf(orderStatus);
 
   return (
     <div className="order-tracking-timeline">
@@ -128,29 +124,29 @@ function TrackingTimeline({status}) {
 function OrderCard({order, onCancel}) {
   const [expanded, setExpanded] = useState(false);
 
+  // order-level metadata
+  const {orderId, orderDate, orderStatus} = order;
+
+  // crop fields — exactly what CropResponse provides
   const {
-    id,
-    cropName,
+    name,
+    price,
     quantity,
-    unitPrice,
-    totalPrice,
-    status,
-    orderDate,
-    estimatedDelivery,
     location,
-    farmerName,
+    predictedHarvestDate,
+    description,
   } = order;
 
-  const canCancel = status === "PENDING";
+  const canCancel = orderStatus === "PENDING";
 
   return (
     <article className="order-card">
-      {/* ── card header ── */}
+      {/* ── header ── */}
       <div className="order-card-header">
         <div className="order-card-meta">
-          <span className="order-card-id">Order #{id}</span>
-          <span className={`order-badge ${getStatusStyle(status)}`}>
-            {getStatusLabel(status)}
+          <span className="order-card-id">{orderId}</span>
+          <span className={`order-badge ${getStatusStyle(orderStatus)}`}>
+            {getStatusLabel(orderStatus)}
           </span>
         </div>
 
@@ -167,57 +163,71 @@ function OrderCard({order, onCancel}) {
         </button>
       </div>
 
-      {/* ── card summary ── */}
+      {/* ── summary ── */}
       <div className="order-card-summary">
         <div>
-          <p className="order-card-crop">{cropName}</p>
+          <p className="order-card-crop">{name}</p>
           <div className="order-card-details-row">
             <span className="flex items-center gap-1 text-text-secondary text-sm">
               <HiOutlineCalendar className="text-base" />
               Ordered {orderDate}
             </span>
-            <span className="flex items-center gap-1 text-text-secondary text-sm">
-              <HiOutlineMapPin className="text-base" />
-              {location}
-            </span>
+            {location && (
+              <span className="flex items-center gap-1 text-text-secondary text-sm">
+                <HiOutlineMapPin className="text-base" />
+                {location}
+              </span>
+            )}
           </div>
         </div>
 
         <div className="order-card-price-block">
-          <p className="order-card-total">${totalPrice.toFixed(2)}</p>
+          <p className="order-card-total">${(price * quantity).toFixed(2)}</p>
           <p className="order-card-qty text-text-secondary text-sm">
-            {quantity} units · ${unitPrice}/ea
+            {quantity} units · ${price}/ea
           </p>
         </div>
       </div>
 
-      {/* ── expanded tracking ── */}
+      {/* ── expanded ── */}
       {expanded && (
         <div className="order-card-expanded">
           <div className="order-expanded-section">
             <h4 className="order-section-title">Request Tracking</h4>
-            <TrackingTimeline status={status} />
+            <TrackingTimeline orderStatus={orderStatus} />
           </div>
 
           <div className="order-expanded-section">
-            <h4 className="order-section-title">Order Details</h4>
+            <h4 className="order-section-title">Crop Details</h4>
             <div className="order-detail-grid">
               <div className="order-detail-item">
-                <span className="order-detail-label">Farmer</span>
-                <span className="order-detail-value">{farmerName}</span>
+                <span className="order-detail-label">Crop</span>
+                <span className="order-detail-value">{name}</span>
               </div>
               <div className="order-detail-item">
-                <span className="order-detail-label">Est. Delivery</span>
-                <span className="order-detail-value">{estimatedDelivery}</span>
+                <span className="order-detail-label">Location</span>
+                <span className="order-detail-value">{location ?? "—"}</span>
               </div>
               <div className="order-detail-item">
                 <span className="order-detail-label">Quantity</span>
                 <span className="order-detail-value">{quantity} units</span>
               </div>
               <div className="order-detail-item">
-                <span className="order-detail-label">Unit Price</span>
-                <span className="order-detail-value">${unitPrice}/unit</span>
+                <span className="order-detail-label">Unit price</span>
+                <span className="order-detail-value">${price}/unit</span>
               </div>
+              {predictedHarvestDate && (
+                <div className="order-detail-item">
+                  <span className="order-detail-label">Est. harvest</span>
+                  <span className="order-detail-value">{predictedHarvestDate}</span>
+                </div>
+              )}
+              {description && (
+                <div className="order-detail-item" style={{gridColumn: "1 / -1"}}>
+                  <span className="order-detail-label">Description</span>
+                  <span className="order-detail-value">{description}</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -226,7 +236,7 @@ function OrderCard({order, onCancel}) {
               <Button
                 variation="danger"
                 size="small"
-                onClick={() => onCancel(id)}
+                onClick={() => onCancel(orderId)}
               >
                 Cancel Order
               </Button>
@@ -238,7 +248,8 @@ function OrderCard({order, onCancel}) {
   );
 }
 
-/* ─────────────── filter tab ─────────────── */
+/* ─────────────── filter tabs ─────────────── */
+
 const FILTERS = [
   {label: "All", value: "all"},
   {label: "Pending", value: "PENDING"},
@@ -258,17 +269,22 @@ function Orders() {
   const filtered =
     activeFilter === "all"
       ? orders
-      : orders.filter((o) => o.status === activeFilter);
+      : orders.filter((o) => o.orderStatus === activeFilter);
 
   const totalSpent = orders
-    .filter((o) => o.status === "COMPLETED")
-    .reduce((sum, o) => sum + o.totalPrice, 0);
+    .filter((o) => o.orderStatus === "COMPLETED")
+    .reduce((sum, o) => sum + o.price * o.quantity, 0);
 
   const activeCount = orders.filter(
-    (o) => o.status === "PENDING" || o.status === "PROCESSING" || o.status === "IN_TRANSIT"
+    (o) =>
+      o.orderStatus === "PENDING" ||
+      o.orderStatus === "PROCESSING" ||
+      o.orderStatus === "IN_TRANSIT"
   ).length;
 
-  const completedCount = orders.filter((o) => o.status === "COMPLETED").length;
+  const completedCount = orders.filter(
+    (o) => o.orderStatus === "COMPLETED"
+  ).length;
 
   if (isLoading)
     return (
@@ -339,7 +355,7 @@ function Orders() {
       ) : (
         <div className="orders-list">
           {filtered.map((order) => (
-            <OrderCard key={order.id} order={order} onCancel={cancelOrder} />
+            <OrderCard key={order.orderId} order={order} onCancel={cancelOrder} />
           ))}
         </div>
       )}

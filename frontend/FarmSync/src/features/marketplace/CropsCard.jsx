@@ -3,34 +3,13 @@
  * ---------
  * Displays a single crop in marketplace format.
  *
- * Unlike the Crops table, this component is focused on product-style
- * presentation, highlighting the most important commercial data such as
- * price, quantity, location, harvest date, and availability.
- * 
-----------------------------------------------------------------
-----------------------------------------------------------------
-----------------------------------------------------------------
-
  * Marketplace actions (Farmer vs Buyer):
-
-* This card is designed to support both Farmer and Buyer views.
-*
-* Current behavior:
-* - Only "View Listing" is implemented and opens a modal with crop details.
-*
-* Planned behavior (future implementation):
-* - Farmer:
-* - Can only preview their listings (View Listing)
-*
-* - Buyer:
-*   - Can preview listings (View Listing)
-*   - Can add crops to a cart (Add to Cart)
-*
-* Note:
-* Role-based behavior (Farmer vs Buyer) is not implemented yet.
-* This will be handled in a future iteration when authentication
-* and user roles are introduced.
-*/
+ * - Farmer: can only preview their listings (View Listing)
+ * - Buyer:  can preview listings and buy 1 unit of AVAILABLE crops
+ *
+ * When a buyer places an order the full crop object (CropResponse) is
+ * passed directly to placeOrder — no extra fields are added or invented.
+ */
 
 import {useMutation, useQueryClient} from "@tanstack/react-query";
 import toast from "react-hot-toast";
@@ -49,19 +28,14 @@ function CropsCard({crop}) {
     onSuccess: () => {
       toast.success("Order placed");
       queryClient.invalidateQueries({queryKey: ["orders"]});
+      queryClient.invalidateQueries({queryKey: ["marketplaceCrops"]});
     },
     onError: (error) => toast.error(error.message),
   });
 
   function handleBuy() {
-    buyCrop({
-      cropName: crop.name,
-      quantity: 1,
-      unitPrice: crop.price,
-      location: crop.location,
-      farmerName: crop.farmerName,
-      estimatedDelivery: crop.predictedHarvestDate,
-    });
+    // Pass the crop object as-is; placeOrder only reads CropResponse fields.
+    buyCrop(crop);
   }
 
   const {
@@ -72,7 +46,9 @@ function CropsCard({crop}) {
     quantity,
     price,
   } = crop;
+
   const styledStatus = getStatusStyles(status);
+
   return (
     <article className="rounded-2xl border border-border bg-surface p-5 shadow-sm transition-all hover:-translate-y-1 hover:shadow-md">
       <div className="mb-4 flex items-start justify-between gap-3">
@@ -117,10 +93,14 @@ function CropsCard({crop}) {
         </p>
         <p className="text-2xl font-bold text-action-primary">${price}</p>
       </div>
+
       <div className="grid gap-3">
         <Modal>
           <Modal.Open opens="listing-details">
-            <Button className="w-full" variation={isBuyer() ? "secondary" : "primary"}>
+            <Button
+              className="w-full"
+              variation={isBuyer() ? "secondary" : "primary"}
+            >
               View Listing
             </Button>
           </Modal.Open>
@@ -128,6 +108,7 @@ function CropsCard({crop}) {
             <ListingDetails crop={crop} />
           </Modal.Window>
         </Modal>
+
         {isBuyer() && (
           <Button
             className="w-full"
